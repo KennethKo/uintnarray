@@ -1,12 +1,13 @@
 {
-  "name": "uintnarray",
+  "name": "uintnarray-js",
   "description": "Arbitrary bit-width typed array of unsigned integers",
+  "repository": "github:chrisveness/uintnarray",
   "author": "Chris Veness",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "main": "uintnarray.js",
-  "files": "uintnarray.js",
+  "files": [ "uintnarray.js" ],
   "scripts": {
     "test": "mocha --exit test.js",
     "lint": "eslint uintnarray.js test.js",

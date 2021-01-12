@@ -13,13 +13,13 @@ Usage is equivalent to that of the standard [Uint8Array](https://developer.mozil
 
 ### In browser:
 
-    import UintNArray from 'https://cdn.jsdelivr.net/npm/uintnarray@1.0.0/uintnarray.js';
+    import UintNArray from 'https://cdn.jsdelivr.net/npm/uintnarray-js@1.0.1/uintnarray.js';
 
 ### In Node.js:
 
-Install from [npm](https://www.npmjs.com/package/uintnarray) and then
+Install from [npm](https://www.npmjs.com/package/uintnarray-js) and then
 
-    import UintNArray from 'uintnarray';
+    import UintNArray from 'uintnarray-js';
 
 ### Example:
 
