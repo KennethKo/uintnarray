@@ -113,7 +113,7 @@ class UintNArray extends Array {
     static of() { return undefined; } // cannot create UintNArray without specifying bit-width!
 
 
-    // TypedArray instance properties (Array instance properties are inherited)
+    // TypedArray instance properties
 
     get buffer() {
         return this[internal].buffer;
@@ -127,8 +127,10 @@ class UintNArray extends Array {
         return this[internal].bitOffset / 8; // may be fractional
     }
 
+    // note .length seems to be special, has to be handled in arrayProxyHandler not with getter here
 
-    // TypedArray instance methods (Array instance methods are inherited)
+
+    // TypedArray instance methods
 
     set(arrayLike, offset) {
         // validate arguments
@@ -154,7 +156,70 @@ class UintNArray extends Array {
         begin = Math.max(begin, 0);
         end = Math.min(end, this[internal].length);
 
-        return new UintNArray(this[internal].bitWidth, this[internal].buffer, begin*this[internal].bitWidth, end-begin);
+        return new UintNArray(this[internal].bitWidth, this[internal].buffer, begin*this[internal].bitWidth, end - begin);
+    }
+
+
+    // overridden Array methods (some inherited methods work, others have to be overridden!)
+
+    copyWithin(target, start, end) {
+        // default values
+        target = isNaN(target) ? 0 : target;                  // index at which to copy the sequence to
+
+        start = isNaN(start) ? 0 : start;                     // index to start copying elements from
+        if (start < 0) start = this[internal].length + start; // ... if -ve from end
+        if (start < 0) start = 0;                             // ... limit to array bounds
+
+        end = isNaN(end) ? this.length : end;                 // index before which which to stop copying elements from
+        if (end < 0) end = this[internal].length + end;       //  ... if -ve from end
+        if (target + end - start > this[internal].length) end = this[internal].length - target + start; // ... limit to array bounds
+        if (end <= start) return this;
+
+        const tmp = new Array(end - start);
+        for (let i=start; i<end; i++) tmp[i-start] = this[i];
+        this.set(tmp, target);
+
+        return this;
+    }
+
+    filter(...args) {
+        return new UintNArray(this[internal].bitWidth, Array.from(this).filter(...args));
+    }
+
+    indexOf(...args) {
+        return Array.from(this).indexOf(...args);
+    }
+
+    lastIndexOf(...args) {
+        return Array.from(this).lastIndexOf(...args);
+    }
+
+    reduce(...args) {
+        return Array.from(this).reduce(...args);
+    }
+
+    reduceRight(...args) {
+        return Array.from(this).reduceRight(...args);
+    }
+
+    reverse(...args) {
+        return new UintNArray(this[internal].bitWidth, Array.from(this).reverse(...args));
+    }
+
+    slice(...args) {
+        return new UintNArray(this[internal].bitWidth, Array.from(this).slice(...args));
+    }
+
+    some(...args) {
+        return Array.from(this).some(...args); // why inherited every() ok but not some()?
+    }
+
+    sort(...args) {
+        return new UintNArray(this[internal].bitWidth, Array.from(this).sort(...args));
+    }
+
+    get [Symbol.toStringTag]() { // default string description for e.g. ({}).toString.call()
+        return 'UintNArray';
     }
 
 }

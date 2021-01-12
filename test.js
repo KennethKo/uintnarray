@@ -45,12 +45,19 @@ describe('construct from other', function() {
 
 describe('typed array properties', function() {
     const ui8 = new Uint8Array([ 1, 2, 3, 4, 255, 254, 253, 252 ]);
-    test('bytes per elmt', () => should.equal(UintNArray.BYTES_PER_ELEMENT, undefined));
-    test('byteLength',     () => new UintNArray(3, [ 1, 2, 3, 4 ]).byteLength.should.equal(1.5));
-    test('buffer',         () => new UintNArray(4, ui8.buffer).buffer.should.equal(ui8.buffer));
-    test('length',         () => new UintNArray(4, ui8.buffer).length.should.equal(16)); // requires special handling
-    test('byteOffset',     () => new UintNArray(4, ui8.buffer, 4).byteOffset.should.equal(0.5));
-    test('byteLength',     () => new UintNArray(4, ui8.buffer, 4).byteLength.should.equal(7.5));
+    test('bytes per elmt',         () => should.equal(UintNArray.BYTES_PER_ELEMENT, undefined));
+    test('byteLength',             () => new UintNArray(3, [ 1, 2, 3, 4 ]).byteLength.should.equal(1.5));
+    test('buffer',                 () => new UintNArray(4, ui8.buffer).buffer.should.equal(ui8.buffer));
+    test('length',                 () => new UintNArray(4, ui8.buffer).length.should.equal(16)); // requires special handling
+    test('byteOffset',             () => new UintNArray(4, ui8.buffer, 4).byteOffset.should.equal(0.5));
+    test('byteLength',             () => new UintNArray(4, ui8.buffer, 4).byteLength.should.equal(7.5));
+    test('object desc.',           () => ({}).toString.call(new UintNArray(1)).should.equal('[object UintNArray]'));
+    test('name',                   () => UintNArray.name.should.equal('UintNArray'));
+    test('instanceof Array',       () => (new UintNArray(1) instanceof Array).should.be.true);
+    test('instanceof UintNArray',  () => (new UintNArray(1) instanceof UintNArray).should.be.true);
+    const uiN = new UintNArray(4);
+    uiN.myProperty = 99;
+    test('set arbitrary property', () => uiN.myProperty.should.equal(99));
 });
 
 describe('typed array methods', function() {
@@ -73,24 +80,45 @@ describe('typed array methods', function() {
     uiN3[-1] = 9;
     uiN3[99] = 9;
     test('ignore out-of-bounds set',     () => uiN3.toString().should.equal('1,2,3,4'));
+    test('from',                         () => (typeof UintNArray.from([])).should.equal('undefined'));
+    test('of',                           () => (typeof UintNArray.of(1)).should.equal('undefined'));
 });
 
-describe('inherited properties (a few)', function() {
-    test('name',                  () => UintNArray.name.should.equal('UintNArray'));
-    test('length',                () => new UintNArray(4, 5).length.should.equal(5));
-    test('instanceof Array',      () => (new UintNArray(1) instanceof Array).should.be.true);
-    test('instanceof UintNArray', () => (new UintNArray(1) instanceof UintNArray).should.be.true);
-    const uiN = new UintNArray(4);
-    uiN.myProperty = 99;
-    test('set arbitrary property', () => uiN.myProperty.should.equal(99));
+describe('overridden Array methods', function() {
+    test('copyWithin start+end',    () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, 4, 6).toString().should.equal('1,2,3,5,6,6'));
+    test('copyWithin no start/end', () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3).toString().should.equal('1,2,3,1,2,3'));
+    test('copyWithin beyond end',   () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, 0, 6).toString().should.equal('1,2,3,1,2,3'));
+    test('copyWithin no-op',        () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, 4, 4).toString().should.equal('1,2,3,4,5,6'));
+    test('copyWithin no end',       () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, 4).toString().should.equal('1,2,3,5,6,6'));
+    test('copyWithin -ve start',    () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, -2).toString().should.equal('1,2,3,5,6,6'));
+    test('copyWithin beyond -ve s', () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, -9).toString().should.equal('1,2,3,1,2,3'));
+    test('copyWithin -ve end',      () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin(3, 4, -1).toString().should.equal('1,2,3,5,5,6'));
+    test('copyWithin NaN target',   () => new UintNArray(4, [ 1, 2, 3, 4, 5, 6 ]).copyWithin('string', 0, 6).toString().should.equal('1,2,3,4,5,6'));
+    test('filter',                  () => new UintNArray(4, [ 1, 2, 3, 4 ]).filter(i => i==4).toString().should.equal('4'));
+    test('indexOf',                 () => new UintNArray(4, [ 1, 2, 3, 4 ]).indexOf(2).should.equal(1));
+    test('lastIndexOf',             () => new UintNArray(4, [ 1, 2, 3, 4 ]).lastIndexOf(2).should.equal(1));
+    test('reduce',                  () => new UintNArray(4, [ 1, 2, 3, 4 ]).reduce((acc, val) => acc + val.toString()).should.equal('1234'));
+    test('reduceRight',             () => new UintNArray(4, [ 1, 2, 3, 4 ]).reduceRight((acc, val) => acc + val.toString()).should.equal('4321'));
+    test('slice default',           () => new UintNArray(4, [ 1, 2, 3, 4 ]).slice().toString().should.equal('1,2,3,4'));
+    test('slice range',             () => new UintNArray(4, [ 1, 2, 3, 4 ]).slice(1, 3).toString().should.equal('2,3'));
+    test('slice -ve',               () => new UintNArray(4, [ 1, 2, 3, 4 ]).slice(1, -1).toString().should.equal('2,3'));
+    test('sort',                    () => new UintNArray(4, [ 1, 3, 2, 4 ]).sort().toString().should.equal('1,2,3,4'));
+    test('reverse',                 () => new UintNArray(4, [ 1, 2, 3, 4 ]).reverse().toString().should.equal('4,3,2,1'));
+    test('some',                    () => new UintNArray(4, [ 1, 2, 3, 4 ]).some(i => i%2 == 0).should.be.true);
 });
 
-describe('inherited methods (a few)', function() {
-    const ui8 = new Uint8Array([ 1, 2, 3, 4, 255, 254, 253, 252 ]);
-    test('toString',   () => new UintNArray(4, ui8.buffer).toString().should.equal('0,1,0,2,0,3,0,4,15,15,15,14,15,13,15,12'));
-    test('includes ✓', () => new UintNArray(4, ui8.buffer).includes(4).should.equal(true));
-    test('includes ✗', () => new UintNArray(4, ui8.buffer).includes(5).should.equal(false));
-    test('fill',       () => new UintNArray(4, 5).fill(12).toString().should.equal('12,12,12,12,12'));
+describe('inherited Array methods', function() {
+    test('entries',        () => [ ...new UintNArray(4, [ 1, 2, 3, 4 ]).entries() ].should.deep.equal([ [ 0, 1 ], [ 1, 2 ], [ 2, 3 ], [ 3, 4 ] ]));
+    test('every',          () => new UintNArray(4, [ 1, 2, 3, 4 ]).every(i => i < 5).should.be.true);
+    test('fill',           () => new UintNArray(4, [ 1, 2, 3, 4 ]).fill(12).toString().should.equal('12,12,12,12'));
+    test('find',           () => new UintNArray(4, [ 1, 2, 3, 4 ]).find(i => i > 2).should.equal(3));
+    test('findIndex',      () => new UintNArray(4, [ 1, 2, 3, 4 ]).findIndex(i => i > 2).should.equal(2));
+    test('includes',       () => new UintNArray(4, [ 1, 2, 3, 4 ]).includes(4).should.equal(true));
+    test('join',           () => new UintNArray(4, [ 1, 2, 3, 4 ]).join('-').should.equal('1-2-3-4'));
+    test('keys',           () => [ ...new UintNArray(4, [ 1, 2, 3, 4 ]).keys() ].should.deep.equal([ 0, 1, 2, 3 ]));
+    test('toLocaleString', () => new UintNArray(4, [ 1, 2, 3, 4 ]).toString().should.equal('1,2,3,4'));
+    test('toString',       () => new UintNArray(4, [ 1, 2, 3, 4 ]).toString().should.equal('1,2,3,4'));
+    test('values',         () => [ ...new UintNArray(4, [ 1, 2, 3, 4 ]).values() ].should.deep.equal([ 1, 2, 3, 4 ]));
 });
 
 describe('array bracket access', function() {
@@ -98,11 +126,6 @@ describe('array bracket access', function() {
     test('[1]',    () => new UintNArray(4, [ 1, 2 ])[1].should.equal(2));
     test('beyond', () => should.equal(new UintNArray(4, [ 1, 2 ])[2]), undefined);
     test('before', () => should.equal(new UintNArray(4, [ 1, 2 ])[-1]), undefined);
-});
-
-describe('overridden properties', function() {
-    test('from', () => (typeof UintNArray.from([])).should.equal('undefined'));
-    test('of',   () => (typeof UintNArray.of(1)).should.equal('undefined'));
 });
 
 describe('irregular word boundaries', function() {
