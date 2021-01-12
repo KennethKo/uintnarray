@@ -61,6 +61,15 @@ When the second argument is a buffer, the third argument is a bit offset rather 
 
 `Uint8Array.prototype.byteOffset` may return fractional values.
 
+### instanceof
+
+Javascript typed arrays are not instances of Array, but UintNArray is.
+
+````javascript
+new Uint8Array([ 1, 2, 3 ]) instanceof Array;    // false
+new UintNArray(4, [ 1, 2, 3 ]) instanceof Array; // true
+````
+
 ## Endian-ness
 
 Since it is working with arbitrary bit-widths, `UintNArray` is intrinsically big-endian.
