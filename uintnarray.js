@@ -22,13 +22,22 @@ class UintNArray extends Array {
      * specifies the bit width (between 1 and 32), and if the second argument is a buffer, the third
      * argument is a bit offset rather than a byte offset.
      *
-     * @param   {number} bitWidth - Number of bits in each word.
+     * @param   {number} bitWidth  - Number of bits in each word.
+     *                             - If negative, the absolute value is the number of bits in each word, and this represents a "Right Aligned" array.
+     *                             -   That is, regardless of the bitWidth, we try to place the big endian rightmost array elements into the lsb of the
+     *                             -   buffer, allowing different mutually prime bitWidths to align on the same buffer by prepending leading zeros 
+     *                             -   (rather than appending trailing zeroes).
+     *                             -   Right alignment also allows the array length to exceed the buffer width (to capture all bits in the buffer). 
+     *                             -   Element bits to the left of the buffer limit are rendered as leading zeroes (and are no-oped during writes).
      * @param   {number|Array|TypedArray|ArrayBuffer} arg2 - Source UintNArray is to be constructed from.
      * @param   {number} bitOffset - If arg2 is a buffer, index into buffer to start extracting values.
      * @param   {number} length - If arg2 is a buffer, number of values to be extracted.
      * @returns {number[]} Array of bitWidth-bit words.
      */
-    constructor(bitWidth, arg2, bitOffset=0, length=undefined) {
+    constructor(bitWidth, arg2, bitOffset=undefined, length=undefined) {
+        const isRightAligned = bitWidth < 0;
+        const rawBitWidth = bitWidth;
+        bitWidth = Math.abs(bitWidth);
         if (!(1 <= Number(bitWidth) && Number(bitWidth) <= 32)) throw new RangeError(`UintNArray bit width (${bitWidth}) must be between 1 and 32`);
 
         super();
@@ -46,7 +55,7 @@ class UintNArray extends Array {
 
             // create new buffer initialised with 0's
             const buffer = new ArrayBuffer(byteLength);
-            this[internal] = new UintNArrayInternal(bitWidth, buffer, 0, len);
+            this[internal] = new UintNArrayInternal(rawBitWidth, buffer, 0, len);
         }
 
         if (arg2IsIterable) { // TypedArray, Array, or other iterable object
@@ -55,29 +64,23 @@ class UintNArray extends Array {
 
             // create new buffer initialised with iterable's values
             const buffer = new ArrayBuffer(byteLength);
-            this[internal] = new UintNArrayInternal(bitWidth, buffer, 0, len);
+            this[internal] = new UintNArrayInternal(rawBitWidth, buffer, undefined, len);
             for (let i=0; i<len; i++) {
-                this[internal].setBits(i * bitWidth, bitWidth, arg2[i]);
+                this[internal].setBits(i * bitWidth + this[internal].bitOffset, bitWidth, arg2[i]);
             }
         }
 
         if (arg2IsBuffer) {
             const buffer = arg2;
-            if (isNaN(bitOffset)) bitOffset = 0;
-            if (length == undefined) length = Math.floor((buffer.byteLength - bitOffset/8) * 8 / bitWidth);
-            if (isNaN(length)) length = 0;
-
-            if (bitOffset < 0 || bitOffset >= buffer.byteLength*8) throw new RangeError(`Bit offset ${bitOffset} is outside the bounds of the buffer`);
-            if (length < 0 || bitOffset + length*bitWidth > buffer.byteLength*8) throw new RangeError(`Invalid typed array length: ${length}`);
 
             // create view into supplied buffer
-            this[internal] = new UintNArrayInternal(bitWidth, buffer, bitOffset, length);
+            this[internal] = new UintNArrayInternal(rawBitWidth, buffer, bitOffset, length);
         }
 
         if (arg2IsOther) {
             // create empty buffer
             const buffer = new ArrayBuffer(0);
-            this[internal] = new UintNArrayInternal(bitWidth, buffer, 0, 0);
+            this[internal] = new UintNArrayInternal(rawBitWidth, buffer, 0, 0);
         }
 
         // proxy for (bracketed) array getter/setter
@@ -98,6 +101,18 @@ class UintNArray extends Array {
         };
 
         return new Proxy(this, arrayProxyHandler);
+    }
+
+    // extra helper for shifting bitWidths on the same buffer with the same parameters. 
+    // if the original buffer's original bitLength is known, it's strongly recommended you pass it in here to truncate unnecessary leading zeroes.
+    // NOTE - this drops any offset/length constraints on the current array, particularly if executed on a subarray
+    toN(bitWidth, bitLength = undefined) {
+        if (bitLength == undefined) {
+            return new UintNArray(bitWidth, this.buffer);
+        }
+        // otherwise, calculate an offset to trim the leading or trailing zeroes
+        const nLength = Math.ceil(bitLength / Math.abs(bitWidth))
+        return new UintNArray(bitWidth, this.buffer, undefined, nLength);
     }
 
 
@@ -156,7 +171,8 @@ class UintNArray extends Array {
         begin = Math.max(begin, 0);
         end = Math.min(end, this[internal].length);
 
-        return new UintNArray(this[internal].bitWidth, this[internal].buffer, begin*this[internal].bitWidth, end - begin);
+        return new UintNArray(this[internal].rawBitWidth, this[internal].buffer, 
+            begin*this[internal].bitWidth + this[internal].bitOffset, end - begin);
     }
 
 
@@ -194,6 +210,10 @@ class UintNArray extends Array {
         return Array.from(this).lastIndexOf(...args);
     }
 
+    map(...args) {
+        return Array.from(this).map(...args);
+    }
+
     reduce(...args) {
         return Array.from(this).reduce(...args);
     }
@@ -228,26 +248,66 @@ class UintNArray extends Array {
 
 class UintNArrayInternal {
 
-    constructor(bitWidth, buffer, bitOffset, length) {
+    constructor(rawBitWidth, buffer, rawBitOffset, rawLength) {
+        const bitWidth = Math.abs(rawBitWidth);
+        const isRightAligned = rawBitWidth < 0;
+
+        const bufferLength = buffer.byteLength*8;
+        const maxLength = (isRightAligned ? Math.ceil : Math.floor)(bufferLength / bitWidth);
+
+        // given offsets and lengths apply against the default full maxLength on the buffer (either left aligned or right aligned)
+        // sanitize any given offsets, and calculate their defaults wrt each other if we were given undefined
+        let length = isNaN(rawLength) ? 0 : rawLength;
+        let bitOffset = isNaN(rawBitOffset) ? 0 : rawBitOffset;
+        if (rawLength == undefined) {
+            // if the rawBitOffset is defined, we shrink the implicit length to the remaining buffer capacity
+            length = (isRightAligned ? Math.ceil : Math.floor)((bufferLength - bitOffset) / bitWidth);
+        }
+        if (length < 0 || (!isRightAligned && length*bitWidth > bufferLength)) {
+            throw new RangeError(`Invalid typed array length: ${length}*${bitWidth} for buffer size ${bufferLength}`);
+        }
+
+        if (rawBitOffset == undefined) {
+            // if the rawLength is defined and we're right-aligned, we grow the offset to consume the remaining buffer capacity with the msb
+            bitOffset = isRightAligned ? (maxLength - length)*bitWidth : 0;
+        }
+        if ((!isRightAligned && bitOffset < 0) || (bitOffset >= maxLength*bitWidth && maxLength > 0)) {
+            throw new RangeError(`Bit offset ${bitOffset} is outside the bounds of the buffer`);
+        }
+
+        const alignmentOffset = isRightAligned ? bufferLength - maxLength*bitWidth : 0;
+        bitOffset += alignmentOffset;
+
         Object.assign(this, {
-            buffer:        buffer,
-            bitWidth:      bitWidth,
-            bitOffset:     bitOffset,
-            length:        length,
-            internalUint8: new Uint8Array(buffer),
+            buffer,
+            rawBitWidth,
+            rawBitOffset,
+            rawLength,
+            internalUint8:    new Uint8Array(buffer),
+            // derrived properties
+            bitWidth,
+            isRightAligned,
+            maxLength,
+            length,
+            bitOffset
         });
     }
 
     getBits(offset, nBits) {
-        if (offset < 0) return undefined;
+        if (offset < this.bitOffset) return undefined;
         if (offset + nBits > this.internalUint8.byteLength * 8) return undefined;
 
         let value = 0;
         let i = 0;
+        if (offset < 0) {
+            const zeroesRead = -offset;
+            offset += zeroesRead
+            i += zeroesRead;
+        }
         while (i < nBits) {
             const remaining = nBits - i;
             const bitOffset = offset & 7;
-            const currentByte = this.internalUint8[offset >> 3]; // o>>3 ≡ ⌊o/8⌋
+            const currentByte = this.internalUint8[offset <= 0 ? 0 : offset >> 3]; // o>>3 ≡ ⌊o/8⌋
             const read = Math.min(remaining, 8 - bitOffset); // max bits avail from current byte
             const mask = ~(0xff << read);
             const readBits = (currentByte >> (8 - read - bitOffset)) & mask;
@@ -263,14 +323,19 @@ class UintNArrayInternal {
     }
 
     setBits(offset, nBits, value) {
-        if (offset < 0) return true;                                     // noop
+        if (offset < this.bitOffset) return true;                           // noop
         if (offset + nBits > this.internalUint8.length * 8) return true; // noop
 
         let i = 0;
+        if (offset < 0) {
+            const zeroesRead = -offset;
+            offset += zeroesRead
+            i += zeroesRead;
+        }
         while (i < nBits) {
             const remaining = nBits - i;
             const bitOffset = offset & 7;
-            const byteOffset = offset >> 3;
+            const byteOffset = offset <= 0 ? 0: offset >> 3;
             const wrote = Math.min(remaining, 8 - bitOffset);
             const mask = ~(~0 << wrote); // create mask with the correct bit width
             const writeBits = (value >> (nBits - i - wrote)) & mask; // shift req'd bits to start of byte & mask the rest
