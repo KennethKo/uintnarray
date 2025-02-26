@@ -3,7 +3,7 @@
   "description": "Arbitrary bit-width typed array of unsigned integers",
   "repository": "github:chrisveness/uintnarray",
   "author": "Chris Veness",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT",
   "type": "module",
   "main": "uintnarray.js",
