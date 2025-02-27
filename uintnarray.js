@@ -26,9 +26,9 @@ class UintNArray extends Array {
      *                             - If negative, the absolute value is the number of bits in each word, and this represents a "Right Aligned" array.
      *                             -   That is, regardless of the bitWidth, we try to place the big endian rightmost array elements into the lsb of the
      *                             -   buffer, allowing different mutually prime bitWidths to align on the same buffer by prepending leading zeros 
-     *                             -   (rather than appending trailing zeroes).
+     *                             -   (rather than appending trailing zeros).
      *                             -   Right alignment also allows the array length to exceed the buffer width (to capture all bits in the buffer). 
-     *                             -   Element bits to the left of the buffer limit are rendered as leading zeroes (and are no-oped during writes).
+     *                             -   Element bits to the left of the buffer limit are rendered as leading zeros (and are no-oped during writes).
      * @param   {number|Array|TypedArray|ArrayBuffer} arg2 - Source UintNArray is to be constructed from.
      * @param   {number} bitOffset - If arg2 is a buffer, index into buffer to start extracting values.
      * @param   {number} length - If arg2 is a buffer, number of values to be extracted.
@@ -104,17 +104,37 @@ class UintNArray extends Array {
     }
 
     // extra helper for shifting bitWidths on the same buffer with the same parameters. 
-    // if the original buffer's original bitLength is known, it's strongly recommended you pass it in here to truncate unnecessary leading zeroes.
+    // if the original buffer's original bitLength is known, it's strongly recommended you pass it in here to truncate unnecessary leading zeros.
     // NOTE - this drops any offset/length constraints on the current array, particularly if executed on a subarray
     toN(bitWidth, bitLength = undefined) {
         if (bitLength == undefined) {
             return new UintNArray(bitWidth, this.buffer);
         }
-        // otherwise, calculate an offset to trim the leading or trailing zeroes
-        const nLength = Math.ceil(bitLength / Math.abs(bitWidth))
+        // otherwise, calculate an offset to trim the leading or trailing zeros
+        const nLength = Math.ceil(bitLength / Math.abs(bitWidth));
         return new UintNArray(bitWidth, this.buffer, undefined, nLength);
     }
 
+    // returns a shallow subarray of this array with zeroes trimmed - from the left if rightAligned or from the right if leftAligned
+    trimZeros() {
+        if (this[internal].isRightAligned) {
+            let i=0;
+            for (; i<this[internal].length-1; i++) {
+                if (this[i] != 0) {
+                    break;
+                }
+            }
+            return this.subarray(i);
+        } else {
+            let i = this[internal].length-1;
+            for (; i>0; i--) {
+                if (this[i] != 0) {
+                    break;
+                }
+            }
+            return this.subarray(undefined, i+1);
+        }
+    }
 
     // TypedArray static properties (Array static properties are inherited)
 
@@ -172,7 +192,7 @@ class UintNArray extends Array {
         end = Math.min(end, this[internal].length);
 
         return new UintNArray(this[internal].rawBitWidth, this[internal].buffer, 
-            begin*this[internal].bitWidth + this[internal].bitOffset, end - begin);
+            begin*this[internal].bitWidth + (this[internal].rawBitOffset ?? 0), end - begin);
     }
 
 
@@ -283,13 +303,13 @@ class UintNArrayInternal {
             rawBitWidth,
             rawBitOffset,
             rawLength,
-            internalUint8:    new Uint8Array(buffer),
+            internalUint8: new Uint8Array(buffer),
             // derrived properties
             bitWidth,
             isRightAligned,
             maxLength,
             length,
-            bitOffset
+            bitOffset,
         });
     }
 
@@ -300,9 +320,9 @@ class UintNArrayInternal {
         let value = 0;
         let i = 0;
         if (offset < 0) {
-            const zeroesRead = -offset;
-            offset += zeroesRead
-            i += zeroesRead;
+            const zerosRead = -offset;
+            offset += zerosRead;
+            i += zerosRead;
         }
         while (i < nBits) {
             const remaining = nBits - i;
@@ -328,9 +348,9 @@ class UintNArrayInternal {
 
         let i = 0;
         if (offset < 0) {
-            const zeroesRead = -offset;
-            offset += zeroesRead
-            i += zeroesRead;
+            const zerosRead = -offset;
+            offset += zerosRead;
+            i += zerosRead;
         }
         while (i < nBits) {
             const remaining = nBits - i;

@@ -147,21 +147,21 @@ describe('truncate oversized iterable inputs', function() {
 });
 
 describe('legacy bit shifting behavior left aligned', function() {
-    const uiN9 = new UintNArray(9, [1, 1]);
+    const uiN9 = new UintNArray(9, [ 1, 1 ]);
     test('7-bit shift',          () => new UintNArray(7, uiN9.buffer).toString().should.equal('0,32,8'));
     test('6-bit trailing zero',  () => new UintNArray(6, uiN9.buffer).toString().should.equal('0,8,1,0'));
-    const uiN4 = new UintNArray(4, [1, 0, 0, 1]);
+    const uiN4 = new UintNArray(4, [ 1, 0, 0, 1 ]);
     test('9-bit miss lsb',       () => new UintNArray(9, uiN4.buffer).toString().should.equal('32'));
     test('9-bit miss msb',       () => new UintNArray(9, uiN4.buffer, 7).toString().should.equal('1'));
     test('9-bit miss both bits', () => new UintNArray(9, uiN4.buffer, 4).toString().should.equal('0'));
 });
 
 describe('right aligned bit shifting behavior', function() {
-    const uiN9 = new UintNArray(-9, [1, 1]);
+    const uiN9 = new UintNArray(-9, [ 1, 1 ]);
     test('self consistency',   () => uiN9.toString().should.equal('1,1'));
     test('7-bit align right',  () => new UintNArray(-7, uiN9.buffer).toString().should.equal('0,0,4,1'));
     test('6-bit leading zero', () => new UintNArray(-6, uiN9.buffer).toString().should.equal('0,0,8,1'));
-    const uiN4 = new UintNArray(-4, [1, 0, 0, 1]);
+    const uiN4 = new UintNArray(-4, [ 1, 0, 0, 1 ]);
     test('9-bit coverage',     () => new UintNArray(-9, uiN4.buffer).toString().should.equal('8,1'));
     test('9-bit safe offset',  () => new UintNArray(-9, uiN4.buffer, 9).toString().should.equal('1'));
     test('9-bit safe offset and length', () => new UintNArray(-9, uiN4.buffer, 0, 1).toString().should.equal('8'));
@@ -169,17 +169,20 @@ describe('right aligned bit shifting behavior', function() {
     test('subarray() begin+end',         () => new UintNArray(-4, [ 1, 2, 3, 4 ]).subarray(1, 3).toString().should.equal('2,3'));
     test('map',                () => new UintNArray(-4, [ 1, 2, 3, 4 ]).map(i => i+1).toString().should.equal('2,3,4,5'));
 
-    test('7-bit toN util',     () => uiN9.toN(-7).toString().should.equal('0,0,4,1'))
-    test('7-bit toN bitLimit', () => uiN9.toN(-7, 9*2).toString().should.equal('0,4,1'))
+    test('7-bit toN util',     () => uiN9.toN(-7).toString().should.equal('0,0,4,1'));
+    test('7-bit toN bitLimit', () => uiN9.toN(-7, 9*2).toString().should.equal('0,4,1'));
+    test('7-bit toN subarray', () => uiN9.toN(-7).subarray(1, 3).toString().should.equal('0,4'));
+    test('7-bit toN trimZeros', () => uiN9.toN(-7).trimZeros().toString().should.equal('4,1'));
+    test('7-bit 0 trimZeros',  () => new UintNArray(-7, [ 0, 0 ]).trimZeros().toString().should.equal('0'));
 });
 
 describe('right aligned base shifting', function() {
     const getMapper = base => num => {
-        const str = new UintNArray(-32, [num]).toN(base).toString();
+        const str = new UintNArray(-32, [ num ]).toN(base).toString();
         const numArr = new UintNArray(base, str.split(',')).toN(-32);
         return numArr[numArr.length-1];
     };
-    const testNums = [0, 1, 33, 512313, 1<<22-1];
+    const testNums = [ 0, 1, 33, 512313, 1<<22-1 ];
     test('num to 2-bit base', () => testNums.map(getMapper(-2)).should.deep.equal(testNums));
     test('num to 1-bit base', () => testNums.map(getMapper(-1)).should.deep.equal(testNums));
     test('num to 8-bit base', () => testNums.map(getMapper(-8)).should.deep.equal(testNums));
@@ -188,12 +191,11 @@ describe('right aligned base shifting', function() {
     test('num to 9-bit base', () => testNums.map(getMapper(-9)).should.deep.equal(testNums));
 
     const geohash = '9q8yy9mf'; // san francisco
-    const base32ghs = "0123456789bcdefghjkmnpqrstuvwxyz";
+    const base32ghs = '0123456789bcdefghjkmnpqrstuvwxyz';
     const base32lookup = base32ghs.split('').reduce((acc, c, i) => { acc[c] = i; return acc; }, {});
     const base32 = new UintNArray(-5, geohash.split('').map(c => base32lookup[c]));
 
     const ui8code = base32.toN(-8).toString();
-    console.log({ui8code, val: new UintNArray(-8, ui8code.split(',')).toN(-5).map(i => i).toString() })
     test('geohash to 8-bit base', () => new UintNArray(-8, ui8code.split(','))
         .toN(-5, 5*geohash.length).map(i => base32ghs[i]).join('').should.equal(geohash));
     const ui12code = base32.toN(-12).toString();
@@ -203,13 +205,13 @@ describe('right aligned base shifting', function() {
     test('geohash to 9-bit base', () => new UintNArray(-9, ui9code.split(','))
         .toN(-5, 5*geohash.length).map(i => base32ghs[i]).join('').should.equal(geohash));
 
-})
+});
 
 describe('right aligned overflow behavior', function() {
-    let uiN9 = new UintNArray(-9, [1, 1]);
+    let uiN9 = new UintNArray(-9, [ 1, 1 ]);
     uiN9 = new UintNArray(-9, uiN9.buffer, undefined, 5);
-    const uiN9Str = uiN9.toString()
-    test('leading zeroes',   () => uiN9Str.should.equal('0,0,0,1,1'));
+    const uiN9Str = uiN9.toString();
+    test('leading zeros',   () => uiN9Str.should.equal('0,0,0,1,1'));
     const ff = (1<<9) -1;
     uiN9[0] = ff;
     uiN9[2] = ff;
@@ -225,22 +227,20 @@ describe('right aligned overflow behavior', function() {
 });
 
 describe('right aligned leading zero creeping', function() {
-    let uiN9 = new UintNArray(-9, [1, 1]);
+    const uiN9 = new UintNArray(-9, [ 1, 1 ]);
     const uiN9Str1 = uiN9.toString();
-    test('leading buffer zero bits truncated',    () => uiN9Str1.should.equal('1,1'));
+    test('leading buffer zero bits truncated',   () => uiN9Str1.should.equal('1,1'));
     const uiN9Str2 = uiN9.toN(-9).toString();
-    test('leading zero added to cover buffer',    () => uiN9Str2.should.equal('0,1,1'));
+    test('leading zero added to cover buffer',   () => uiN9Str2.should.equal('0,1,1'));
     let uiN7 = uiN9.toN(-7);
     const uiN7Str3 = uiN7.toString();
-    test('leading zeroes added to cover buffer',  () => uiN7Str3.should.equal('0,0,4,1'));
+    test('leading zeros added to cover buffer',  () => uiN7Str3.should.equal('0,0,4,1'));
     uiN7 = new UintNArray(-7, uiN7).toN(-7);
     const uiN7Str4 = uiN7.toString();
-    test('leading zeroes creep on alternating iterable/buffer init', () => uiN7Str4.should.equal('0,0,0,4,1'));
+    test('leading zeros creep on alternating iterable/buffer init', () => uiN7Str4.should.equal('0,0,0,4,1'));
     uiN7 = uiN7.toN(-7, 8*2);
     const uiN7Str5 = uiN7.toString();
-    test('leading zeroes truncated by utility',   () => uiN7Str5.should.equal('0,4,1'));
-
-    
+    test('leading zeros truncated by bitLength', () => uiN7Str5.should.equal('0,4,1'));
 });
 
 describe('constructor errors', function() {
