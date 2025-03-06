@@ -12,7 +12,7 @@
 
 const internal = Symbol('internal'); // keep internals private
 
-
+/** @extends {Array<number>} */
 class UintNArray extends Array {
 
     /**
@@ -29,7 +29,7 @@ class UintNArray extends Array {
      *                             -   (rather than appending trailing zeros).
      *                             -   Right alignment also allows the array length to exceed the buffer width (to capture all bits in the buffer). 
      *                             -   Element bits to the left of the buffer limit are rendered as leading zeros (and are no-oped during writes).
-     * @param   {number|Array|TypedArray|ArrayBuffer} arg2 - Source UintNArray is to be constructed from.
+     * @param   {number|Array|ArrayBufferView|ArrayBuffer} arg2 - Source UintNArray is to be constructed from.
      * @param   {number} bitOffset - If arg2 is a buffer, index into buffer to start extracting values.
      * @param   {number} length - If arg2 is a buffer, number of values to be extracted.
      * @returns {number[]} Array of bitWidth-bit words.
@@ -103,9 +103,16 @@ class UintNArray extends Array {
         return new Proxy(this, arrayProxyHandler);
     }
 
-    // extra helper for shifting bitWidths on the same buffer with the same parameters. 
-    // if the original buffer's original bitLength is known, it's strongly recommended you pass it in here to truncate unnecessary leading zeros.
-    // NOTE - this drops any offset/length constraints on the current array, particularly if executed on a subarray
+    /**
+     * Extra helper for shifting bitWidths on the same buffer. Equivalent to `new UintNArray(bitwidth, this.buffer)`.
+     * 
+     * NOTE - this drops any offset/length constraints on the current array. Notable if executed on a shallow subarray.
+     * @param {number} bitWidth - The base N to cast this array to.
+     * @param {number|undefined} bitLength - The total number of relevant bits known to be held in the current buffer.
+     *                                     - If the original buffer's original bitLength is known, it's strongly recommended 
+     *                                     -  you pass it in here to truncate unnecessary leading zeros.
+     * @returns {UintNArray} - Array of bitWidth-bit words.
+     */
     toN(bitWidth, bitLength = undefined) {
         if (bitLength == undefined) {
             return new UintNArray(bitWidth, this.buffer);
@@ -115,7 +122,10 @@ class UintNArray extends Array {
         return new UintNArray(bitWidth, this.buffer, undefined, nLength);
     }
 
-    // returns a shallow subarray of this array with zeroes trimmed - from the left if rightAligned or from the right if leftAligned
+    /**
+     * Returns a shallow subarray of this array with zeroes trimmed - from the left if rightAligned or from the right if leftAligned
+     * @returns {UintNArray} - Array of bitWidth-bit words.
+     */
     trimZeros() {
         if (this[internal].isRightAligned) {
             let i=0;
@@ -150,6 +160,7 @@ class UintNArray extends Array {
 
     // TypedArray instance properties
 
+    /** @type {ArrayBuffer} */
     get buffer() {
         return this[internal].buffer;
     }
@@ -254,6 +265,7 @@ class UintNArray extends Array {
         return Array.from(this).some(...args); // why inherited every() ok but not some()?
     }
 
+    /** @returns {this} */
     sort(...args) {
         return new UintNArray(this[internal].bitWidth, Array.from(this).sort(...args));
     }
