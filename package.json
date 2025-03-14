@@ -6,7 +6,8 @@
   "version": "1.0.2",
   "license": "MIT",
   "type": "module",
-  "main": "uintnarray.js",
+  "main": "uintnarray",
+  "types": "dist/uintnarray",
   "files": [ "uintnarray.js" ],
   "scripts": {
     "test": "mocha --exit test.js",
